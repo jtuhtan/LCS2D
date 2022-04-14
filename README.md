@@ -1,4 +1,4 @@
-# lcs
+# LCS2D
 MATLAB code for processing 2D Langrangian Coherent Structures from a stationary velocity vector field
 
 The code includes several scripts for generating, testing and calculating Lagrangian coherent structures (LCS) from a stationary 2D velocity field.
