@@ -14,4 +14,8 @@ For details on the parameters and theory behind this work, please also see:
 
 https://www.academia.edu/5643321/Investigating_Lagrangian_Coherent_Structures_in_Environmental_Flows
 
+A video example of the double gyre running this code can be viewed on YouTube:
+
+https://www.youtube.com/watch?v=fs92NqIVIEM
+
 Contact: Jeffrey Tuhtan (jetuht@ttu.ee)
