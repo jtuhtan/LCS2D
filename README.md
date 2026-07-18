@@ -3,7 +3,11 @@
 **Fast Lagrangian coherent structures (FTLE / FSLE) from steady 2D velocity
 fields — in Python.**
 
-![Forward FTLE of the double gyre](docs/img/ftle_double_gyre.png)
+![The repelling LCS of the double gyre forming as the FTLE integration time grows](docs/img/ftle_formation.gif)
+
+*The repelling LCS of the double gyre forming as the integration time grows —
+48 complete FTLE fields, computed in about a minute on a laptop CPU.
+Regenerate it yourself with `python examples/make_ftle_animation.py`.*
 
 LCS2D takes a two-dimensional steady velocity field — from a hydraulic or CFD
 model, PIV measurements, or an analytic test case — and computes the standard
