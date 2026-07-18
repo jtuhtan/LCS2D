@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use LCS2D in your research, please cite it as below."
+title: "LCS2D: Lagrangian coherent structures from steady 2D velocity fields"
+authors:
+  - family-names: Tuhtan
+    given-names: Jeffrey A.
+    email: jtuhtan@gmail.com
+version: 2.0.0
+date-released: 2026-07-18
+url: "https://github.com/jtuhtan/LCS2D"
+license: GPL-3.0-or-later
+keywords:
+  - Lagrangian coherent structures
+  - FTLE
+  - FSLE
+  - environmental flows
+  - particle advection

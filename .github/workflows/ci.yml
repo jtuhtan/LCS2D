@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            extras: "[dev,fast]"   # with numba: exercises the compiled backend
+          - os: windows-latest
+            extras: "[dev]"        # without numba: exercises the NumPy fallback
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".${{ matrix.extras }}"
+      - name: Unit tests
+        run: pytest -q
+      - name: Selftest (analytic flows)
+        run: python -m lcs2d selftest
