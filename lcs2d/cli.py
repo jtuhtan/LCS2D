@@ -93,8 +93,9 @@ def _add_field_arg(p: argparse.ArgumentParser) -> None:
 
 def _add_common_lcs_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--dt", type=float, default=None,
-                   help="advection time step (default: CFL-based, "
-                        "0.5*min(dx,dy)/max_speed)")
+                   help="advection time step (default: CFL-based - one "
+                        "grid cell per step for ftle, half a cell for "
+                        "fsle, where dt sets the tau resolution)")
     p.add_argument("--res", type=float, default=None,
                    help="seed-grid spacing (default: the velocity grid "
                         "spacing)")

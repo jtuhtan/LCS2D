@@ -74,8 +74,10 @@ def main() -> None:
                  legacy_s))
 
     # -- numpy ----------------------------------------------------------
+    # dt is pinned so every contender runs the identical 1257-step
+    # workload; the actual FTLE default (CFL 1.0) uses half the steps.
     tic = time.perf_counter()
-    lcs2d.ftle_field(field, t=t_total, res=seed_res, backend="numpy")
+    lcs2d.ftle_field(field, t=t_total, dt=dt, res=seed_res, backend="numpy")
     rows.append(("lcs2d numpy (bilinear + RK4, vectorized)",
                  time.perf_counter() - tic))
 
@@ -84,7 +86,8 @@ def main() -> None:
         # warm up the JIT on a tiny problem so compilation isn't timed
         lcs2d.ftle_field(field, t=2 * dt, dt=dt, res=0.5, backend="numba")
         tic = time.perf_counter()
-        lcs2d.ftle_field(field, t=t_total, res=seed_res, backend="numba")
+        lcs2d.ftle_field(field, t=t_total, dt=dt, res=seed_res,
+                         backend="numba")
         rows.append(("lcs2d numba (compiled, parallel)",
                      time.perf_counter() - tic))
     else:

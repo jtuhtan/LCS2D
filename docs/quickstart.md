@@ -11,7 +11,7 @@ cd LCS2D
 pip install -e .
 ```
 
-Optional but recommended — the Numba-compiled engine is ~50× faster than
+Optional but recommended — the Numba-compiled engine is ~30× faster than
 the (already fast) NumPy one:
 
 ```bash

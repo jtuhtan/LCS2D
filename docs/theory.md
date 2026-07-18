@@ -79,8 +79,14 @@ which is what the legacy MATLAB code used, for comparison only. The
 requested time is hit exactly by rounding to a whole number of steps and
 adjusting dt accordingly.
 
-The default step obeys a CFL-style bound, dt = 0.5·min(dx, dy)/max|v|, so
-no particle can cross more than half a grid cell per step.
+The default step obeys a CFL-style bound of dt = min(dx, dy)/max|v| for
+FTLE — at most one grid cell per step. With RK4 the step is limited by
+accuracy, not stability, and this default was verified on the
+double-gyre benchmark to match a 4×-finer step to ~10⁻⁴ relative error
+(halve `--dt` once on your own data as the same self-check). FSLE and
+plain advection use the more conservative 0.5·min(dx, dy)/max|v|: the
+FSLE separation time τ is quantized in units of dt, so its step size is
+a measurement-resolution choice, not just an accuracy one.
 
 **Velocity sampling** is bilinear on the regular grid: exact for linear
 fields, C⁰ across cell edges, and cheap enough to evaluate four times per

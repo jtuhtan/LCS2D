@@ -20,8 +20,8 @@ outputs, and is also usable as a Python library.
 
 > **Looking for the old MATLAB code?** It lives on, deprecated but unchanged,
 > in [`matlab/`](matlab/README.md). The Python engine reproduces its method
-> (and fixes two numerical issues) at **3–5 orders of magnitude** the speed —
-> see [the migration guide](docs/migration_from_matlab.md).
+> (and fixes two numerical issues) at **~600× to ~20,000×** the speed — see
+> [the migration guide](docs/migration_from_matlab.md).
 
 ## Installation
 
@@ -93,19 +93,28 @@ simultaneously** with vectorized bilinear sampling and RK4, optionally
 compiled and parallelized by Numba.
 
 Benchmark (`python benchmarks/benchmark.py`): FTLE of the double gyre,
-401×201 grid, 5,151 seeds → 25,755 particles × 1,257 time steps, on a
-Windows 11 laptop with Python 3.11:
+401×201 grid, 5,151 seeds → 25,755 particles × 1,257 time steps, all three
+measured in the same session on a Windows 11 laptop (Intel Core Ultra 5,
+Python 3.11):
 
 | implementation                                        |      time | speedup |
 |-------------------------------------------------------|----------:|--------:|
-| legacy-style scattered interp + Euler (extrapolated)¹  |    ~4.9 h |      1× |
-| **lcs2d** NumPy backend (bilinear + RK4, vectorized)  |    16.8 s |  ~1,000× |
-| **lcs2d** Numba backend (compiled, parallel)          |    0.28 s | ~64,000× |
+| legacy-style scattered interp + Euler (extrapolated)¹  |    ~1.5 h |      1× |
+| **lcs2d** NumPy backend (bilinear + RK4, vectorized)  |     9.4 s |   ~590× |
+| **lcs2d** Numba backend (compiled, parallel)          |    0.30 s | ~18,500× |
 
 ¹ The legacy algorithm reproduced in Python (SciPy's Delaunay-based
 `LinearNDInterpolator`, the equivalent of `TriScatteredInterp`), measured on
 a subsample and extrapolated. And note the new engine does 4 velocity
 samples per step (RK4) where the legacy code did 1 (Euler).
+
+The table pins the time step for a like-for-like comparison; the *default*
+FTLE pipeline additionally exploits RK4's accuracy to take one-grid-cell
+steps (verified to ~10⁻⁴ against a 4×-finer step), which lands the full
+double-gyre FTLE at **~0.14 s (Numba)** or **~5 s (NumPy)** end to end.
+The kernels compile with fused multiply-add (`fastmath`); the NumPy and
+Numba backends agree to ~10⁻¹³ in particle positions, enforced by the
+tests.
 
 ## Documentation
 
@@ -131,7 +140,8 @@ pytest
 
 The suite checks the engine against flows with exact analytic answers
 (uniform strain, rigid rotation), verifies the double-gyre ridge, and
-enforces bit-level agreement between the NumPy and Numba backends.
+enforces agreement between the NumPy and Numba backends to near machine
+precision.
 
 ## License and contact
 

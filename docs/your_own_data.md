@@ -67,7 +67,7 @@ unit mistakes or bad vectors *before* spending compute on them.
 |---|---|---|
 | `--t` (FTLE) | integration time | The single most important choice. Too short: no structures yet. Too long: everything saturates or leaves the domain. Start with the time it takes the mean flow to cross ~1/4 of your domain, then double/halve and compare — ridges that persist across `t` choices are the real ones. |
 | `--backward` | time direction | Forward = repelling LCS (where particles will separate *from*), backward = attracting LCS (where particles collect). For transport questions you usually want both. |
-| `--dt` | advection step | Default is CFL-safe (`0.5·min(dx,dy)/max_speed`) and rarely needs touching. Halve it once; if the field doesn't change, it was fine. |
+| `--dt` | advection step | Default is CFL-safe (one grid cell per step for FTLE, half a cell for FSLE/advect) and rarely needs touching. Halve it once; if the field doesn't change, it was fine. |
 | `--res` | seed spacing | Sets output resolution and cost (seeds × 5 particles). Default = velocity grid spacing. Finer `--res` sharpens ridges without changing where they are. |
 | `--delta` (FTLE) | auxiliary offset | Default `res/100`. Keep it well below `res`; the result should be insensitive to it (that insensitivity is a good self-check). |
 | `--delta` (FSLE) | initial separation d0 | This one is *physical*: it is the scale you probe. Default `res/2`. |
@@ -100,7 +100,7 @@ recirculation boundaries and wake shear layers.
 | Bright band hugging the domain edge | Particles freeze at the boundary, which mimics stretching. Use `--margin` to inset the seeds, and treat near-edge ridges with suspicion. |
 | Ridges move when you change `--delta` (FTLE) | `delta` is too large relative to `--res`, or too close to machine precision. Keep `res/1000 ≤ delta ≤ res/10`. |
 | FSLE full of zeros | `--t-max` too short (see the "never separated" count in the output). |
-| Slow | `pip install -e .[fast]` (Numba) — typically ~50× on top of NumPy. The first Numba call compiles (a few seconds); later calls are cached. |
+| Slow | `pip install -e .[fast]` (Numba) — typically ~30× on top of NumPy. The first Numba call compiles (a few seconds); later calls are cached. |
 | Scattered load looks blocky | `--grid-res` too coarse; refine it (cost grows only at load time). |
 
 ## Getting results into other tools

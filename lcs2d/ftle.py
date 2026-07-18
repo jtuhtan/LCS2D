@@ -82,7 +82,11 @@ def ftle_field(field: VelocityField,
         Integration time.  Positive: repelling LCS (forward FTLE).
         Negative: attracting LCS (backward FTLE).
     dt : float, optional
-        Advection time step; defaults to ``field.cfl_dt()``.
+        Advection time step; defaults to ``field.cfl_dt(1.0)`` — one
+        grid cell per step.  RK4 is accuracy-limited rather than
+        stability-limited, and on the double-gyre benchmark this default
+        matches a 4x-finer step to ~1e-4 relative.  Halve it once as a
+        self-check on new data; if the field doesn't change, it was fine.
     res : float, optional
         Seed-grid spacing; defaults to the velocity grid spacing.
     delta : float, optional
@@ -103,6 +107,8 @@ def ftle_field(field: VelocityField,
         res = max(field.dx, field.dy)
     if delta is None:
         delta = res / 100.0
+    if dt is None:
+        dt = field.cfl_dt(1.0)
 
     sx, sy = seed_grid(field, res=res, margin=margin)
     mx, my = np.meshgrid(sx, sy)
@@ -138,7 +144,7 @@ def ftle_field(field: VelocityField,
     ok = lam_max > 0.0
     sigma[ok] = np.log(lam_max[ok]) / (2.0 * abs(t))
 
-    params = {"t": t, "dt": dt if dt is not None else field.cfl_dt(),
+    params = {"t": t, "dt": dt,
               "res": res, "delta": delta, "margin": margin,
               "integrator": integrator,
               "direction": "forward (repelling LCS)" if t > 0

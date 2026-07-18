@@ -2,8 +2,8 @@
 
 > **⚠️ Deprecated.** These scripts are the original 2013 MATLAB
 > implementation of LCS2D. They are kept for reference and reproducibility,
-> but they are no longer maintained and are **3–5 orders of magnitude
-> slower** than the Python engine at the repository root. New work should
+> but they are no longer maintained and are **orders of magnitude slower**
+> (measured ~600× to ~20,000×) than the Python engine at the repository root. New work should
 > use the Python package — see the [main README](../README.md) and the
 > [migration guide](../docs/migration_from_matlab.md).
 
