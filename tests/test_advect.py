@@ -125,3 +125,19 @@ class TestAdvection:
         field = make_field(lambda x, y: x, lambda x, y: y)
         with pytest.raises(ValueError, match="nonzero"):
             advect(field, np.array([0.0]), np.array([0.0]), t=0.0)
+
+
+class TestValidation:
+    @pytest.mark.parametrize("dt", [0.0, np.nan, np.inf])
+    def test_bad_dt_rejected(self, dt):
+        field = make_field(lambda x, y: -y, lambda x, y: x)
+        with pytest.raises(ValueError, match="dt"):
+            advect(field, np.array([0.1]), np.array([0.1]), t=1.0, dt=dt)
+
+    @pytest.mark.parametrize("backend", BACKENDS)
+    def test_nonfinite_positions_rejected(self, backend):
+        # a NaN position used to index the grid with garbage
+        field = make_field(lambda x, y: -y, lambda x, y: x)
+        with pytest.raises(ValueError, match="finite"):
+            advect(field, np.array([np.nan]), np.array([0.1]), t=1.0,
+                   backend=backend)

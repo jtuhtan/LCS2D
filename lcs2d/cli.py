@@ -126,6 +126,8 @@ def _add_common_lcs_args(p: argparse.ArgumentParser) -> None:
 
 def cmd_gyre(args) -> None:
     field = double_gyre(nx=args.nx, ny=args.ny, amplitude=args.amplitude)
+    if not args.out.lower().endswith(".npz"):
+        args.out += ".npz"  # what np.savez would silently do anyway
     _ensure_parent(args.out)
     field.save(args.out)
     _say(args, field.summary())
@@ -140,7 +142,11 @@ def cmd_gyre(args) -> None:
 
 def cmd_info(args) -> None:
     field = _load(args)
-    _say(args, f"suggested dt (CFL 0.5): {field.cfl_dt():.6g}")
+    if field.max_speed() > 0.0:
+        _say(args, f"suggested dt (CFL 0.5): {field.cfl_dt():.6g}")
+    else:
+        _say(args, "warning: the field has zero velocity everywhere, so "
+                   "there is nothing to advect (check units and masking)")
     if args.plot:
         png = os.path.splitext(args.field)[0] + "_field.png"
         from .plots import plot_velocity
@@ -356,7 +362,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> None:
     args = build_parser().parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except (ValueError, RuntimeError) as exc:
+        # bad parameters or data: a one-line message, not a traceback
+        sys.exit(f"error: {exc}")
 
 
 if __name__ == "__main__":

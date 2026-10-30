@@ -1,4 +1,4 @@
-﻿"""FTLE tests: analytic saddle flow, double-gyre ridge, backend parity."""
+"""FTLE tests: analytic saddle flow, double-gyre ridge, backend parity."""
 
 import numpy as np
 import pytest
@@ -91,3 +91,27 @@ class TestResultObject:
         table = np.loadtxt(path, delimiter=",", skiprows=1)
         assert table.shape == (res.values.size, 3)
         np.testing.assert_allclose(table[:, 2], res.values.ravel())
+
+
+class TestSeedGrid:
+    def test_seeds_stay_inside_domain(self):
+        from lcs2d import seed_grid
+        field = double_gyre(nx=41, ny=21)
+        for res in (0.3, 0.07, 0.05, 0.02):
+            sx, sy = seed_grid(field, res=res)
+            assert sx[0] == 0.0 and sy[0] == 0.0
+            assert sx[-1] <= 2.0 and sy[-1] <= 1.0
+            np.testing.assert_allclose(np.diff(sx), res, rtol=1e-9)
+
+    def test_exact_multiple_keeps_last_seed(self):
+        from lcs2d import seed_grid
+        sx, sy = seed_grid(double_gyre(nx=41, ny=21), res=0.02)
+        assert sx.size == 101 and sy.size == 51
+        assert sx[-1] == 2.0 and sy[-1] == 1.0
+
+    @pytest.mark.parametrize("kw", [dict(res=0.0), dict(res=-0.1),
+                                    dict(delta=0.0), dict(delta=-1e-3),
+                                    dict(dt=0.0), dict(margin=-0.1)])
+    def test_bad_parameters_rejected(self, kw):
+        with pytest.raises(ValueError):
+            ftle_field(saddle_field(), t=1.0, **kw)

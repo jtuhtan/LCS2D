@@ -74,3 +74,39 @@ class TestInfo:
         out = capsys.readouterr().out
         assert "double gyre" in out
         assert "suggested dt" in out
+
+
+class TestErrors:
+    def test_gyre_adds_npz_extension(self, tmp_path, capsys):
+        out = str(tmp_path / "plain")
+        main(["gyre", "--nx", "21", "--ny", "11", "-o", out])
+        assert os.path.exists(out + ".npz")
+        assert out + ".npz" in capsys.readouterr().out
+
+    def test_zero_field_is_a_polite_error(self, tmp_path):
+        from lcs2d import VelocityField
+        path = str(tmp_path / "still.npz")
+        x = np.arange(3.0)
+        VelocityField(x, x, np.zeros((3, 3)), np.zeros((3, 3))).save(path)
+        main(["info", path, "--quiet"])  # warns, does not crash
+        with pytest.raises(SystemExit, match="zero velocity"):
+            main(["ftle", path, "--t", "1", "--quiet"])
+
+    def test_bad_parameter_is_a_polite_error(self, gyre_file):
+        with pytest.raises(SystemExit, match="res must be positive"):
+            main(["ftle", gyre_file, "--t", "1", "--res", "0", "--quiet"])
+
+
+class TestPlots:
+    def test_plots_leave_backend_alone(self):
+        import matplotlib
+        before = matplotlib.get_backend()
+        import lcs2d.plots  # noqa: F401
+        assert matplotlib.get_backend() == before
+
+    def test_degenerate_results_plot_and_summarize(self, tmp_path):
+        from lcs2d.plots import plot_result
+        for values in (np.full((2, 3), np.nan), np.full((2, 3), 3.0)):
+            res = LCSResult("fsle", np.arange(3.0), np.arange(2.0), values)
+            plot_result(res, str(tmp_path / "r.png"))
+            assert "FSLE" in res.summary()

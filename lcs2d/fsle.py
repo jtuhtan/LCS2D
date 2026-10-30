@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import _kernels
-from .advect import _field_args, _step_numpy, resolve_backend
+from .advect import _check_dt, _field_args, _step_numpy, resolve_backend
 from .fields import VelocityField
 from .ftle import seed_grid
 from .result import LCSResult
@@ -98,25 +98,28 @@ def fsle_field(field: VelocityField,
         never reached); ``extra["tau"]`` holds the separation time in
         time units (NaN where never reached).
     """
-    if alpha <= 1.0:
+    if not alpha > 1.0:
         raise ValueError("alpha (= df/d0) must be greater than 1")
+    if integrator not in ("rk4", "euler"):
+        raise ValueError(f"unknown integrator {integrator!r}; "
+                         "expected 'rk4' or 'euler'")
+    use_rk4 = integrator == "rk4"
+    backend = resolve_backend(backend)
     if res is None:
         res = max(field.dx, field.dy)
+    sx, sy = seed_grid(field, res=res, margin=margin)  # validates res
     if delta is None:
         delta = res / 2.0
-    if t_max == 0.0:
-        raise ValueError("t_max must be nonzero")
-    if dt is None:
-        dt = field.cfl_dt()
-    dt = abs(float(dt))
+    if not delta > 0.0:
+        raise ValueError(f"delta must be positive, got {delta}")
+    t_max = float(t_max)
+    if not np.isfinite(t_max) or t_max == 0.0:
+        raise ValueError("t_max must be finite and nonzero "
+                         "(negative t_max integrates backward in time)")
+    dt = _check_dt(dt, field)
     max_steps = max(1, int(round(abs(t_max) / dt)))
-    sdt = (t_max / abs(t_max)) * dt
-    use_rk4 = integrator == "rk4"
-    if integrator not in ("rk4", "euler"):
-        raise ValueError(f"unknown integrator {integrator!r}")
-    backend = resolve_backend(backend)
+    sdt = np.copysign(dt, t_max)
 
-    sx, sy = seed_grid(field, res=res, margin=margin)
     mx, my = np.meshgrid(sx, sy)
     cx = np.ascontiguousarray(mx.ravel())
     cy = np.ascontiguousarray(my.ravel())
@@ -137,6 +140,8 @@ def fsle_field(field: VelocityField,
 
     params = {"t_max": t_max, "dt": dt, "res": res, "delta": delta,
               "alpha": alpha, "margin": margin, "integrator": integrator,
+              "direction": "forward (repelling LCS)" if t_max > 0
+                           else "backward (attracting LCS)",
               "n_never_separated": int((~crossed).sum())}
     shape = (sy.size, sx.size)
     return LCSResult(kind="fsle", x=sx, y=sy,

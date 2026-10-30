@@ -59,3 +59,19 @@ class TestSaddle:
         np.testing.assert_array_equal(res_np.values, res_nb.values)
         np.testing.assert_array_equal(np.isnan(res_np.extra["tau"]),
                                       np.isnan(res_nb.extra["tau"]))
+
+
+class TestValidation:
+    @pytest.mark.parametrize("kw", [dict(dt=0.0), dict(delta=0.0),
+                                    dict(t_max=0.0), dict(t_max=np.inf),
+                                    dict(integrator="heun")])
+    def test_bad_parameters_rejected(self, kw):
+        args = dict(t_max=1.0)
+        args.update(kw)
+        with pytest.raises(ValueError):
+            fsle_field(saddle_field(), **args)
+
+    def test_backward_direction_recorded(self):
+        res = fsle_field(saddle_field(), t_max=-5.0, dt=0.05, res=0.2,
+                         margin=0.55, backend="numpy")
+        assert res.params["direction"].startswith("backward")

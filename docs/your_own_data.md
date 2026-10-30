@@ -18,8 +18,9 @@ approximation — interpret accordingly.)
 
 ## Input formats
 
-**Text (`.csv`, `.txt`, `.dat`)** — four columns `x y u v`, comma- or
-whitespace-separated; `#` comments and a single header row are fine:
+**Text (`.csv`, `.txt`, `.dat`, `.xyz`)** — the first four columns are
+`x y u v`, comma- or whitespace-separated; `#` comments, a single header
+row and extra trailing columns are fine:
 
 ```
 x,y,u,v
@@ -28,7 +29,9 @@ x,y,u,v
 ...
 ```
 
-If the rows form a complete regular grid it is used exactly as given.
+If the rows form a complete regular grid (every node exactly once) it is
+used exactly as given; a `NaN` in `u` or `v` stays a masked no-flow node
+of that grid.
 Otherwise the points are treated as **scattered** and linearly resampled
 onto a regular grid once, at spacing `--grid-res` (default: automatic,
 about one grid node per sample). This replaces the old
@@ -42,7 +45,11 @@ not at every time step.
 lcs2d ftle survey.mat --mat-vars xGrid,yGrid,uVel,vVel --t 30 -o out/ftle
 ```
 
-Both `meshgrid`-style 2D arrays and column vectors (scattered) work.
+`meshgrid`- or `ndgrid`-style 2D arrays, axis vectors `x (nx)`,
+`y (ny)` with `u, v (ny, nx)`, and column vectors (scattered) all work.
+To take one column of a matrix, write `name:k` (1-based, as in MATLAB),
+for example `--mat-vars XY:1,XY:2,UV:1,UV:2` for N×2 position and
+velocity matrices.
 
 **NumPy (`.npz`)** — the native format: arrays `x (nx,)`, `y (ny,)`,
 `u (ny, nx)`, `v (ny, nx)`.

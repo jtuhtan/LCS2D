@@ -1,18 +1,18 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "lcs2d"
-version = "2.0.0"
+dynamic = ["version"]
 description = "Lagrangian coherent structures (FTLE / FSLE) from steady 2D velocity fields"
 readme = "README.md"
 authors = [{ name = "Jeffrey A. Tuhtan", email = "jtuhtan@gmail.com" }]
-license = { text = "GPL-3.0-or-later" }
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 classifiers = [
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Hydrology",
@@ -25,7 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 fast = ["numba>=0.57"]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "build"]
 
 [project.urls]
 Homepage = "https://github.com/jtuhtan/LCS2D"
@@ -35,6 +35,9 @@ lcs2d = "lcs2d.cli:main"
 
 [tool.setuptools]
 packages = ["lcs2d"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lcs2d.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

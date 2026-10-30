@@ -75,17 +75,23 @@ published definitions.
 
 ## Reading your old `.mat` data
 
-Raw arrays (like `seedXY.mat` / `seedUV.mat`) load directly:
+Raw arrays load directly. If you don't remember the variable names,
+run `lcs2d info` with the defaults: the error lists every variable in
+the file with its shape.
+
+N×2 or N×3 matrices (like `seedXY` / `seedUV`, or an `xyz` array) need
+no export step: pick their columns with `name:k` (1-based):
 
 ```bash
-lcs2d info old_data.mat --mat-vars xyz,xyz,velocity,velocity   # inspect names first
+lcs2d info old_data.mat --mat-vars seedXY:1,seedXY:2,seedUV:1,seedUV:2
 ```
 
-If your variables are N×2/N×3 matrices rather than separate vectors,
-export them once from MATLAB or Octave as columns:
+All four variables must be in the one file. The bundled `seedXY.mat` and
+`seedUV.mat` hold one each, so combine them once in MATLAB or Octave
+(`save('seed.mat', 'seedXY', 'seedUV')`), or write a CSV:
 
 ```matlab
-T = [xyz(:,1), xyz(:,2), velocity(:,1), velocity(:,2)];
+T = [seedXY(:,1), seedXY(:,2), seedUV(:,1), seedUV(:,2)];
 writematrix(T, 'field.csv');    % or: dlmwrite('field.csv', T)
 ```
 

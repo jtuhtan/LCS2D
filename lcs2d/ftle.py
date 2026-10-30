@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .advect import advect
+from .advect import _check_dt, advect
 from .fields import VelocityField
 from .result import LCSResult
 
@@ -52,6 +52,11 @@ def seed_grid(field: VelocityField,
     """
     if res is None:
         res = max(field.dx, field.dy)
+    res = float(res)
+    if not (np.isfinite(res) and res > 0.0):
+        raise ValueError(f"seed spacing res must be positive, got {res}")
+    if not margin >= 0.0:
+        raise ValueError(f"margin must be >= 0, got {margin}")
     xmin, xmax, ymin, ymax = field.extent
     xmin += margin
     xmax -= margin
@@ -59,9 +64,14 @@ def seed_grid(field: VelocityField,
     ymax -= margin
     if xmin >= xmax or ymin >= ymax:
         raise ValueError("margin leaves no seeding area")
-    sx = np.arange(xmin, xmax + 0.5 * res, res)
-    sy = np.arange(ymin, ymax + 0.5 * res, res)
-    return sx, sy
+
+    def axis(lo, hi):
+        # whole steps of res that stay inside [lo, hi] (with a small
+        # tolerance so an exact multiple keeps its last seed)
+        n = int(np.floor((hi - lo) / res + 1e-9)) + 1
+        return np.minimum(lo + res * np.arange(n), hi)
+
+    return axis(xmin, xmax), axis(ymin, ymax)
 
 
 def ftle_field(field: VelocityField,
@@ -105,12 +115,13 @@ def ftle_field(field: VelocityField,
     """
     if res is None:
         res = max(field.dx, field.dy)
+    sx, sy = seed_grid(field, res=res, margin=margin)  # validates res
     if delta is None:
         delta = res / 100.0
-    if dt is None:
-        dt = field.cfl_dt(1.0)
+    if not delta > 0.0:
+        raise ValueError(f"delta must be positive, got {delta}")
+    dt = _check_dt(dt, field, safety=1.0)
 
-    sx, sy = seed_grid(field, res=res, margin=margin)
     mx, my = np.meshgrid(sx, sy)
     cx = mx.ravel()
     cy = my.ravel()

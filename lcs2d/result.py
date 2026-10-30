@@ -66,9 +66,13 @@ class LCSResult:
         lines = [
             f"{self.kind.upper()} field: {self.values.shape[1]} x "
             f"{self.values.shape[0]} seeds",
-            f"range   : min {finite.min():.6g}, max {finite.max():.6g}, "
-            f"mean {finite.mean():.6g}  [1/time]",
         ]
+        if finite.size:
+            lines.append(f"range   : min {finite.min():.6g}, max "
+                         f"{finite.max():.6g}, mean {finite.mean():.6g}  "
+                         f"[1/time]")
+        else:
+            lines.append("range   : no finite values")
         for key, val in self.params.items():
             lines.append(f"{key:8}: {val}")
         return "\n".join(lines)
