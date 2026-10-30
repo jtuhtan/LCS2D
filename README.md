@@ -84,7 +84,7 @@ choose `--t`, `--res`, and friends.
 
 ## Showcase: a coastal cape and bay
 
-![Residual flow around a cape and a bay (top) and its forward and backward FTLE (bottom)](docs/img/coastal_bay.png)
+![Dye stripes carried around a cape and a bay (top) above the forward and backward FTLE forming (bottom)](docs/img/coastal_bay.gif)
 
 `lcs2d.coastal_bay()` (or `lcs2d coast` on the command line) builds an
 idealized coastal residual circulation in kilometres and km/h: a weak
@@ -95,11 +95,14 @@ over the bay. The eddies are vorticity patches and the streamfunction is
 solved with the coast held at zero, so the shoreline is an exact streamline
 and land is a no-flow mask, as in a hydraulic model.
 
-The FTLE fields trace what the streamlines only hint at. The magenta
-(repelling) and light-blue (attracting) ridges meet at saddle points
-offshore and fence each eddy off from the coastal current: water caught in
-the bay gyre or in the cape's lee eddy stays there, while water outside is
-carried past. The rings inside each eddy are its shear. Particles that
+The FTLE fields trace what the streamlines only hint at. In the animation
+above, stripes of dye (top) are carried by the flow for the same time as the
+FTLE integration (bottom). The magenta (repelling) and light-blue
+(attracting) ridges meet at saddle points offshore and fence each eddy off
+from the coastal current: dye caught in the bay gyre or in the cape's lee
+eddy winds up there, while dye outside is folded along the attracting ridges
+and carried past. A still of the flow and the finished LCS is in
+[`docs/img/coastal_bay.png`](docs/img/coastal_bay.png). The rings inside each eddy are its shear. Particles that
 graze the shore slow down in the land mask, which leaves the speckle along
 the coast; read near-shore ridges with that in mind.
 
