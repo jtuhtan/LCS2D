@@ -25,7 +25,7 @@ from dataclasses import dataclass, field as dataclass_field
 
 import numpy as np
 
-__all__ = ["VelocityField", "double_gyre"]
+__all__ = ["VelocityField", "double_gyre", "coastal_bay"]
 
 
 def _check_uniform(coord: np.ndarray, name: str) -> float:
@@ -249,3 +249,104 @@ def double_gyre(nx: int = 401,
     u = -np.pi * amplitude * np.sin(np.pi * mx) * np.cos(np.pi * my)
     v = np.pi * amplitude * np.cos(np.pi * mx) * np.sin(np.pi * my)
     return VelocityField(x, y, u, v, name="double gyre")
+
+
+def _coastline(x: np.ndarray) -> np.ndarray:
+    """Shoreline height y_c(x) [km] of :func:`coastal_bay`: a straight
+    coast at y = 1 km with a cape at x = 4 km, a bay centred on
+    x = 9.2 km and a smaller point at x = 13.4 km."""
+    def bump(x0, width):
+        return np.exp(-((x - x0) / width) ** 2)
+    return 1.0 + 2.6 * bump(4.0, 0.9) - 0.6 * bump(9.2, 1.9)         + 1.2 * bump(13.4, 0.8)
+
+
+def coastal_bay(res: float = 0.05,
+                current: float = 0.36) -> VelocityField:
+    """An idealized coastal residual circulation: a cape, a bay and
+    three eddies, on x in [-16, 30] km, y in [0, 8] km.
+
+    Units are kilometres and hours: ``u, v`` in km/h (0.36 km/h =
+    0.1 m/s), so FTLE/FSLE come out in 1/h and integration times are in
+    hours.  The sea lies north of the shoreline :func:`_coastline`; land
+    is NaN (no flow).
+
+    The flow is the steady (tidally averaged) residual circulation that
+    tides leave behind around headlands and in bays: a weak eastward
+    alongshore current plus
+
+    * a pair of counter-rotating headland eddies, anticlockwise west and
+      clockwise east of the cape (the tidal residual eddies of
+      Zimmerman 1981, observed e.g. off Portland Bill by Pingree and
+      Maddock 1977), and
+    * an anticlockwise gyre over the bay.
+
+    The eddies are Gaussian vorticity patches ``omega(x, y)``; the
+    streamfunction solves ``laplace(psi) = omega`` with ``psi = 0`` on
+    the coast, so the shoreline is an exact streamline (no flow through
+    land), and with the uniform alongshore current on the open
+    boundaries.  ``u = -d(psi)/dy, v = d(psi)/dx`` as in
+    :func:`double_gyre`.  The forward and backward FTLE then show the
+    separatrices that fence each eddy off from the coastal current.
+
+    Parameters
+    ----------
+    res : float
+        Grid spacing [km]; the default gives a 921 x 161 grid and solves
+        in a few seconds.
+    current : float
+        Speed of the far-field alongshore current [km/h].
+    """
+    import scipy.sparse as sparse
+    import scipy.sparse.linalg as sparse_linalg
+
+    res = float(res)
+    if not (np.isfinite(res) and 0.0 < res <= 0.5):
+        raise ValueError(f"res must be in (0, 0.5] km, got {res}")
+    x = np.linspace(-16.0, 30.0, int(round(46.0 / res)) + 1)
+    y = np.linspace(0.0, 8.0, int(round(8.0 / res)) + 1)
+    h = x[1] - x[0]
+    if not np.isclose(y[1] - y[0], h, rtol=1e-6):
+        raise ValueError(f"res must divide both 46 and 8 km, got {res}")
+    mx, my = np.meshgrid(x, y)
+    land = my < _coastline(mx)
+
+    def eddy(x0, y0, radius, strength):
+        return strength * np.exp(-((mx - x0) ** 2 + (my - y0) ** 2)
+                                 / radius ** 2)
+    # vorticity [1/h]; positive = anticlockwise
+    omega = (eddy(2.4, 2.0, 0.9, 4.0)       # west of the cape
+             + eddy(5.6, 2.0, 0.9, -2.5)    # lee of the cape
+             + eddy(9.3, 1.5, 1.3, 2.5))    # bay gyre
+    omega[land] = 0.0
+
+    # Dirichlet values: 0 on land, uniform current on the outer edge
+    # (u = -d(psi)/dy = current, eastward)
+    fixed = land.copy()
+    fixed[0, :] = fixed[-1, :] = fixed[:, 0] = fixed[:, -1] = True
+    psi = np.where(land, 0.0, -current * np.maximum(my - 1.0, 0.0))
+
+    # 5-point Laplacian on the free (sea) nodes
+    free = ~fixed
+    index = np.full(free.shape, -1)
+    index[free] = np.arange(free.sum())
+    jj, ii = np.nonzero(free)
+    k = index[jj, ii]
+    rhs = omega[jj, ii] * h * h
+    rows, cols, vals = [k], [k], [np.full(k.size, -4.0)]
+    for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nk = index[jj + dj, ii + di]
+        inner = nk >= 0
+        rows.append(k[inner])
+        cols.append(nk[inner])
+        vals.append(np.ones(inner.sum()))
+        np.add.at(rhs, k[~inner], -psi[jj + dj, ii + di][~inner])
+    lap = sparse.csc_matrix(
+        (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))),
+        shape=(k.size, k.size))
+    psi[free] = sparse_linalg.spsolve(lap, rhs)
+
+    dpsi_dy, dpsi_dx = np.gradient(psi, h, h)
+    u, v = -dpsi_dy, dpsi_dx
+    u[land] = np.nan
+    v[land] = np.nan
+    return VelocityField(x, y, u, v, name="coastal bay (km, km/h)")

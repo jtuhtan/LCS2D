@@ -23,6 +23,15 @@ class TestGyre:
             assert data["u"].shape == (51, 101)
 
 
+class TestCoast:
+    def test_creates_field(self, tmp_path):
+        path = str(tmp_path / "coast.npz")
+        main(["coast", "--res", "0.25", "-o", path, "--quiet"])
+        with np.load(path) as data:
+            assert data["u"].shape == (33, 185)
+            assert np.all(data["u"][0] == 0.0)  # land: no flow
+
+
 class TestFTLE:
     def test_full_run(self, tmp_path, gyre_file):
         out = str(tmp_path / "out" / "ftle")

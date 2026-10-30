@@ -6,6 +6,7 @@ list, and ``lcs2d <command> --help`` for the options of each command.
 A typical first session::
 
     lcs2d gyre -o gyre.npz            # make the double-gyre test field
+    lcs2d coast -o coast.npz          # ... or the coastal cape-and-bay field
     lcs2d ftle gyre.npz --t 10 -o out/ftle_fwd
     lcs2d fsle gyre.npz --t-max 40 -o out/fsle
     lcs2d selftest                    # verify the install end to end
@@ -23,7 +24,7 @@ import numpy as np
 from . import __version__
 from ._kernels import NUMBA_AVAILABLE
 from .advect import advect, resolve_backend
-from .fields import VelocityField, double_gyre
+from .fields import VelocityField, coastal_bay, double_gyre
 from .fsle import fsle_field
 from .ftle import ftle_field
 from .io import load_field
@@ -125,7 +126,15 @@ def _add_common_lcs_args(p: argparse.ArgumentParser) -> None:
 # ---------------------------------------------------------------------------
 
 def cmd_gyre(args) -> None:
-    field = double_gyre(nx=args.nx, ny=args.ny, amplitude=args.amplitude)
+    _write_field(args, double_gyre(nx=args.nx, ny=args.ny,
+                                   amplitude=args.amplitude))
+
+
+def cmd_coast(args) -> None:
+    _write_field(args, coastal_bay(res=args.res, current=args.current))
+
+
+def _write_field(args, field: VelocityField) -> None:
     if not args.out.lower().endswith(".npz"):
         args.out += ".npz"  # what np.savez would silently do anyway
     _ensure_parent(args.out)
@@ -294,6 +303,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--plot", action="store_true",
                    help="also write a PNG of the field")
     p.set_defaults(func=cmd_gyre)
+
+    p = sub.add_parser("coast",
+                       help="generate the coastal cape-and-bay field "
+                            "(km, km/h)")
+    p.add_argument("--res", type=float, default=0.05,
+                   help="grid spacing in km (default: %(default)s)")
+    p.add_argument("--current", type=float, default=0.36,
+                   help="alongshore current in km/h "
+                        "(default: %(default)s, i.e. 0.1 m/s)")
+    p.add_argument("-o", "--out", default="coast.npz",
+                   help="output .npz path (default: %(default)s)")
+    p.add_argument("--plot", action="store_true",
+                   help="also write a PNG of the field")
+    p.set_defaults(func=cmd_coast)
 
     p = sub.add_parser("info", help="describe a velocity-field file")
     _add_field_arg(p)
