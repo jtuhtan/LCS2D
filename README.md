@@ -29,7 +29,7 @@ outputs, and is also usable as a Python library.
 
 ## Installation
 
-Python 3.9+ is required.
+Python 3.10+ is required.
 
 ```bash
 git clone https://github.com/jtuhtan/LCS2D.git

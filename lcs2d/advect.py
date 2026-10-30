@@ -131,14 +131,24 @@ def _field_args(field: VelocityField):
             1.0 / field.dx, 1.0 / field.dy)
 
 
+def _check_dt(dt: float | None, field: VelocityField,
+              safety: float = 0.5) -> float:
+    """Validate a time-step magnitude, defaulting to ``field.cfl_dt()``."""
+    if dt is None:
+        return field.cfl_dt(safety)
+    dt = float(dt)
+    if not np.isfinite(dt) or dt == 0.0:
+        raise ValueError(f"time step dt must be finite and nonzero, got {dt}")
+    return abs(dt)
+
+
 def _plan_steps(t: float, dt: float | None, field: VelocityField):
     """Choose (n_steps, signed_dt) so that n_steps * dt == t exactly."""
-    if t == 0.0:
-        raise ValueError("integration time t must be nonzero "
+    t = float(t)
+    if not np.isfinite(t) or t == 0.0:
+        raise ValueError("integration time t must be finite and nonzero "
                          "(negative t integrates backward in time)")
-    if dt is None:
-        dt = field.cfl_dt()
-    dt = abs(float(dt))
+    dt = _check_dt(dt, field)
     n_steps = max(1, int(round(abs(t) / dt)))
     return n_steps, t / n_steps
 
@@ -198,6 +208,8 @@ def advect(field: VelocityField,
     py = np.asarray(py, dtype=np.float64)
     if px.shape != py.shape:
         raise ValueError("px and py must have the same shape")
+    if not (np.isfinite(px).all() and np.isfinite(py).all()):
+        raise ValueError("particle positions px, py must all be finite")
     shape = px.shape
     fx = np.ascontiguousarray(px.ravel())
     fy = np.ascontiguousarray(py.ravel())

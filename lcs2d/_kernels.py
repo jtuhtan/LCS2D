@@ -1,4 +1,4 @@
-﻿"""Optional Numba-accelerated compute kernels.
+"""Optional Numba-accelerated compute kernels.
 
 When Numba is installed (``pip install lcs2d[fast]``) these kernels are
 compiled to parallel machine code and used automatically.  Every kernel

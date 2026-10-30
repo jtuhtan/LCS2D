@@ -9,6 +9,7 @@ Run:  python examples/make_ftle_animation.py [output.gif]
 """
 
 import io
+import os
 import sys
 
 import numpy as np
@@ -75,7 +76,7 @@ def main() -> None:
     durations = [FRAME_MS] * (len(frames) - 1) + [FINAL_HOLD_MS]
     frames[0].save(OUT, save_all=True, append_images=frames[1:],
                    duration=durations, loop=0, optimize=True)
-    size_mb = __import__("os").path.getsize(OUT) / 1e6
+    size_mb = os.path.getsize(OUT) / 1e6
     print(f"written: {OUT}  ({len(frames)} frames, {size_mb:.1f} MB)")
 
 

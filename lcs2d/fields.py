@@ -119,6 +119,8 @@ class VelocityField:
         of 0.5 is a comfortable default; use smaller values for strongly
         curved flows.
         """
+        if not safety > 0.0:
+            raise ValueError(f"safety must be positive, got {safety}")
         vmax = self.max_speed()
         if vmax <= 0.0:
             raise ValueError("field has zero velocity everywhere; "
@@ -161,11 +163,23 @@ class VelocityField:
         if x.size < 4:
             raise ValueError("need at least 4 scattered samples")
 
+        ok = np.isfinite(x) & np.isfinite(y)
+        x, y, u, v = x[ok], y[ok], u[ok], v[ok]
+        if x.size < 4:
+            raise ValueError("need at least 4 scattered samples with "
+                             "finite coordinates")
+
         xmin, xmax = float(x.min()), float(x.max())
         ymin, ymax = float(y.min()), float(y.max())
+        if not (xmax > xmin and ymax > ymin):
+            raise ValueError(
+                "scattered samples span no area (all x or all y equal); "
+                "a 2D field needs points spread over a plane")
         if grid_res is None:
             area = (xmax - xmin) * (ymax - ymin)
             grid_res = float(np.sqrt(area / x.size))
+        if not (np.isfinite(grid_res) and grid_res > 0.0):
+            raise ValueError(f"grid_res must be positive, got {grid_res}")
         nx = max(2, int(round((xmax - xmin) / grid_res)) + 1)
         ny = max(2, int(round((ymax - ymin) / grid_res)) + 1)
         gx = np.linspace(xmin, xmax, nx)
