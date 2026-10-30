@@ -13,7 +13,7 @@ jobs:
         include:
           # with numba: exercises the compiled backend
           - os: ubuntu-latest
-            python: "3.9"          # oldest supported (requires-python)
+            python: "3.10"         # oldest supported (requires-python)
             extras: "[dev,fast]"
           - os: ubuntu-latest
             python: "3.13"
