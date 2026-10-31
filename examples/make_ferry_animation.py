@@ -4,7 +4,10 @@ Builds on ``make_coastal_animation.py`` (run from the repository root):
 the first part of the animation is the steady baseline of
 :func:`lcs2d.coastal_bay` forming as the integration time grows; once it
 has settled, a large ferry enters from the east and crosses the view to
-the west along a route 4.6 km offshore, over the bay gyre's saddle.
+the west along a route 4.6 km offshore, over the bay gyre's saddle, and
+the animation slows to half speed. The top panel shows the streamlines of
+the instantaneous flow with particles drifting along them, the bottom
+panel the forward and backward FTLE.
 
 The ferry adds an unsteady flow to the steady residual circulation:
 
@@ -41,7 +44,9 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.patches import Polygon  # noqa: E402
+from PIL import Image  # noqa: E402
 
 try:
     from numba import njit, prange
@@ -70,14 +75,18 @@ WAKE_DECAY = 0.75      # h, e-folding time of the wake speed
 WINDOW_T = 12.0        # FTLE window [h]
 RES = base.RES
 ICON_SCALE = 2.5       # the ferry icon is drawn this much larger
+N_PARTICLES = 1500     # particles drifting along the streamlines
+STEADY_STEP = 0.2      # h of drift per frame while the flow is steady
+FRAME_MS = 120         # playback; half speed once the ferry is in view
 
 
 def clock_frames():
     """Clock times t0 [h] of the ferry part: coarse before the ship,
-    fine while it crosses, medium while the wake decays."""
+    fine while it crosses (twice the frames, played at half speed),
+    medium while the wake decays."""
     return np.concatenate([np.arange(-11.0, -1.0, 2.0),
                            np.arange(-1.0, 0.0, 0.25),
-                           np.arange(0.0, 0.6, 0.04),
+                           np.arange(0.0, 0.6, 0.02),
                            np.arange(0.6, 6.01, 0.3)])
 
 
@@ -199,6 +208,17 @@ def _advance(u, v, wet, x0, y0, inv_dx, inv_dy, px, py, times):
         py[p] = y
 
 
+@njit(parallel=True, fastmath=True, cache=True)
+def _grid_velocity(u, v, wet, x0, y0, inv_dx, inv_dy, gx, gy, t):
+    gu = np.empty((gy.size, gx.size))
+    gv = np.empty((gy.size, gx.size))
+    for j in prange(gy.size):
+        for i in range(gx.size):
+            gu[j, i], gv[j, i] = _velocity(u, v, wet, x0, y0, inv_dx,
+                                           inv_dy, gx[i], gy[j], t)
+    return gu, gv
+
+
 class Flow:
     """The steady coastal field plus the ferry, advected by _advance."""
 
@@ -215,6 +235,10 @@ class Flow:
         py = np.array(py, dtype=np.float64)
         _advance(*self.args, px, py, step_times(t_from, t_to))
         return px, py
+
+    def velocity_grid(self, gx, gy, t):
+        """Instantaneous velocity (u, v) at clock time t on a grid."""
+        return _grid_velocity(*self.args, gx, gy, t)
 
 
 def ftle(flow, sx, sy, t0, t1):
@@ -260,55 +284,95 @@ def main() -> None:
     extent = (sx[0] - RES / 2, sx[-1] + RES / 2,
               sy[0] - RES / 2, sy[-1] + RES / 2)
 
-    # dye stripes, released 2 windows before the ferry part starts
-    gx, gy = np.meshgrid(np.arange(field.x[0], x1, 0.04),
-                         np.arange(y0, y1, 0.04))
-    dyed = (gy > _coastline(gx) + 0.02) & (np.floor(2.0 * gx) % 2 == 0)
-    dye_x, dye_y = gx[dyed], gy[dyed]
     t_ferry = clock_frames()
-    t_release = t_ferry[0] - WINDOW_T
+    rng = np.random.default_rng(1)
 
-    # each frame: (title, LCS rgb, dye x, dye y, ship x or None)
+    def sea_points(n):
+        """n random points at sea in the view."""
+        px = rng.uniform(x0, x1, 4 * n + 16)
+        py = rng.uniform(y0, y1, 4 * n + 16)
+        keep = py > _coastline(px) + 0.05
+        return px[keep][:n], py[keep][:n]
+
+    def drift(px, py, t_from, t_to):
+        """Advance the particles; re-seed those that left the view (they
+        get no tail in that frame)."""
+        qx, qy = flow.advect(px, py, t_from, t_to)
+        gone = ((qx < x0) | (qx > x1) | (qy > y1)
+                | (qy < _coastline(qx) + 0.01))
+        tail_x, tail_y = px.copy(), py.copy()
+        tail_x[gone] = np.nan
+        tail_y[gone] = np.nan
+        qx[gone], qy[gone] = sea_points(int(gone.sum()))
+        return qx, qy, tail_x, tail_y
+
+    # each frame: (title, LCS rgb, particle x, y, tail x, y,
+    #              clock time of the streamlines or None, ship x or None)
     frames = []
+    px, py = sea_points(N_PARTICLES)
+    clock = t_ferry[0] - WINDOW_T  # steady here: no ship for hours
 
     # part 1: the steady baseline forming, before the ferry is anywhere
     # near: the steady engine's recorded runs from make_coastal_animation
     print("part 1: baseline LCS forming...", flush=True)
     fwd = base.ftle_snapshots(field, sx, sy, WINDOW_T)[1::2]
     bwd = base.ftle_snapshots(field, sx, sy, -WINDOW_T)[1::2]
-    _, dye_xs, dye_ys = base.record(field, dye_x, dye_y, WINDOW_T)
-    for (t, f), (_, b), fx, fy in zip(fwd, bwd, dye_xs[1::2], dye_ys[1::2]):
+    for (t, f), (_, b) in zip(fwd, bwd):
+        px, py, tx, ty = drift(px, py, clock, clock + STEADY_STEP)
+        clock += STEADY_STEP
         frames.append((f"BASELINE  ·  INTEGRATION TIME {t:4.1f} h",
                        base.blend(base.normalized(f, sea) * sea,
                                   base.normalized(b, sea) * sea),
-                       fx, fy, None))
-    dye_x, dye_y = dye_xs[-1], dye_ys[-1]
-    t_dye = t_release + WINDOW_T
+                       px, py, tx, ty, None, None))
 
-    # part 2: sliding windows while the ferry comes and goes
+    # part 2: sliding windows while the ferry comes and goes; until it is
+    # near, the flow is still steady and the particles keep drifting
+    # STEADY_STEP per frame, from then on they keep the clock
     print(f"part 2: {t_ferry.size} frames with the ferry...", flush=True)
+    t_prev = t_ferry[0]
     for k, t0 in enumerate(t_ferry):
         f = ftle(flow, sx, sy, t0, t0 + WINDOW_T)
         b = ftle(flow, sx, sy, t0, t0 - WINDOW_T)
-        dye_x, dye_y = flow.advect(dye_x, dye_y, t_dye, t0)
-        t_dye = t0
+        if t0 < -0.1:
+            px, py, tx, ty = drift(px, py, t0 - STEADY_STEP, t0)
+        else:
+            px, py, tx, ty = drift(px, py, t_prev, t0)
+        t_prev = t0
         xs = SHIP_X0 - SHIP_SPEED * t0
-        clock = (f"FERRY DUE IN {-t0:4.2f} h" if t0 < 0.0
-                 else f"FERRY ENTERED {t0:4.2f} h AGO")
-        frames.append((clock,
+        text = (f"FERRY DUE IN {-t0:4.2f} h" if t0 < 0.0
+                else f"FERRY ENTERED {t0:4.2f} h AGO")
+        frames.append((text,
                        base.blend(base.normalized(f, sea) * sea,
                                   base.normalized(b, sea) * sea),
-                       dye_x, dye_y,
+                       px, py, tx, ty, t0 if t0 >= 0.0 else None,
                        xs if x0 - 0.5 < xs < x1 + 0.5 else None))
         print(f"  frame {k + 1:2d}/{t_ferry.size}  t0 = {t0:+5.2f} h",
               flush=True)
 
-    # render: dye (top), LCS (bottom), the ferry on both
+    # render: streamlines and particles (top), LCS (bottom), the ferry
+    # on both
     fig, (top, bottom) = plt.subplots(2, 1, figsize=(8.0, 8.0))
     for ax in (top, bottom):
         base.styled_axes(fig, ax)
-    dots = top.scatter(dye_x, dye_y, s=0.5, c=base.DYE, linewidths=0,
-                       zorder=2)
+    gx = np.arange(x0 - 0.5, x1 + 0.5 + 1e-9, 0.025)
+    gy = np.arange(y0, y1 + 0.5 + 1e-9, 0.025)
+    mgx, mgy = np.meshgrid(gx, gy)
+    sea_grid = mgy > _coastline(mgx)
+
+    def streamlines(t):
+        # t = None: the steady flow, long before the ferry
+        gu, gv = flow.velocity_grid(gx, gy, -50.0 if t is None else t)
+        gu = np.ma.masked_where(~sea_grid, gu)
+        gv = np.ma.masked_where(~sea_grid, gv)
+        return top.streamplot(gx, gy, gu, gv, color=base.SHORE,
+                              density=1.8, linewidth=0.45, arrowsize=0.6,
+                              zorder=1)
+
+    stream = streamlines(None)
+    tails = LineCollection([], colors=base.DYE, linewidths=1.0,
+                           alpha=0.55, zorder=2)
+    top.add_collection(tails)
+    dots = top.scatter(px, py, s=5, c=base.DYE, linewidths=0, zorder=3)
     im = bottom.imshow(frames[0][1], origin="lower", extent=extent,
                        interpolation="bilinear", zorder=1)
     head_top = base.title(top, "a")
@@ -321,19 +385,36 @@ def main() -> None:
         ax.add_patch(ship)
     fig.tight_layout()
 
-    images = []
-    for text, rgb, fx, fy, xs in frames:
+    images, durations = [], []
+    for text, rgb, fx, fy, tx, ty, t_stream, xs in frames:
+        if t_stream is not None:  # the ferry's flow changes them
+            stream.lines.remove()
+            for arrow in [a for a in top.patches if a not in ships]:
+                arrow.remove()
+            stream = streamlines(t_stream)
         dots.set_offsets(np.column_stack([fx, fy]))
+        tails.set_segments(np.stack([np.column_stack([tx, ty]),
+                                     np.column_stack([fx, fy])], axis=1))
         im.set_data(rgb)
-        head_top.set_text(f"a  DYE  ·  {text}")
+        head_top.set_text(f"a  STREAMLINES  ·  {text}")
         head_bottom.set_text("b  FORWARD AND BACKWARD FTLE, "
                              f"{WINDOW_T:g} h WINDOWS")
         for ship in ships:
             ship.set_xy(ferry_outline(-10.0 if xs is None else xs,
                                       ICON_SCALE))
         images.append(base.grab(fig, 90))
+        durations.append(FRAME_MS if t_stream is None else 2 * FRAME_MS)
     plt.close(fig)
-    base.save_gif(images, OUT)
+
+    # quantize every frame with the final frame's palette to avoid
+    # palette flicker between frames
+    ref = images[-1].quantize(colors=256, method=Image.MEDIANCUT)
+    images = [frame.quantize(palette=ref) for frame in images]
+    durations[-1] = base.FINAL_HOLD_MS
+    images[0].save(OUT, save_all=True, append_images=images[1:],
+                   duration=durations, loop=0, optimize=True)
+    print(f"written: {OUT}  ({len(images)} frames, "
+          f"{os.path.getsize(OUT) / 1e6:.1f} MB)")
 
 
 if __name__ == "__main__":

@@ -84,7 +84,7 @@ choose `--t`, `--res`, and friends.
 
 ## Showcase: a coastal cape and bay
 
-![Dye and FTLE around a cape and a bay: the baseline forms, then a ferry crosses from east to west and its wake reshapes the LCS](docs/img/coastal_ferry.gif)
+![Streamlines, particles and FTLE around a cape and a bay: the baseline forms, then a ferry crosses from east to west and its wake reshapes the LCS](docs/img/coastal_ferry.gif)
 
 `lcs2d.coastal_bay()` (or `lcs2d coast` on the command line) builds an
 idealized coastal residual circulation in kilometres and km/h: a weak
@@ -95,11 +95,12 @@ over the bay. The eddies are vorticity patches and the streamfunction is
 solved with the coast held at zero, so the shoreline is an exact streamline
 and land is a no-flow mask, as in a hydraulic model.
 
-The FTLE fields trace what the streamlines only hint at. The magenta
-(repelling) and light-blue (attracting) ridges meet at saddle points
-offshore and fence each eddy off from the coastal current: dye (top panel)
-caught in the bay gyre or in the cape's lee eddy winds up there, while dye
-outside is folded along the attracting ridges and carried past. The rings
+The top panel shows the streamlines of the instantaneous flow, with
+particles drifting along them; the bottom panel shows the FTLE, which traces
+what the streamlines only hint at. The magenta (repelling) and light-blue
+(attracting) ridges meet at saddle points offshore and fence each eddy off
+from the coastal current: particles caught in the bay gyre or in the cape's
+lee eddy keep circling there, while those outside are carried past. The rings
 inside each eddy are its shear. Particles that graze the shore slow down in
 the land mask, which leaves the speckle along the coast; read near-shore
 ridges with that in mind.
@@ -107,7 +108,7 @@ ridges with that in mind.
 **A ferry passes.** The animation first lets the baseline LCS form over a
 12 h integration time. Then a 200 m ferry at 15 knots crosses from east to
 west, 4.6 km offshore over the bay gyre's saddle (the icon is drawn 2.5x
-size). Its flow is a moving dipole (the hull pushing water aside) plus a
+size; from its arrival the animation plays at half speed). Its flow is a moving dipole (the hull pushing water aside) plus a
 self-propelled, momentumless wake: a propeller jet running aft, flanked by
 water dragged forward, widening and decaying behind the ship. With the flow
 now unsteady, each frame takes the FTLE over sliding 12 h windows, forward
@@ -115,11 +116,12 @@ over [t, t + 12 h] and backward over [t - 12 h, t]. The forward
 (repelling) FTLE looks ahead, so the track lights up in magenta before the
 ferry arrives; the attracting ridges of the wake appear only behind it, and
 over the following hours the residual flow bends them and draws them into
-the bay gyre's separatrix. Regenerate it with
+the bay gyre's separatrix. The streamlines bend around the hull and along
+the wake while it lasts, then relax back to the baseline. Regenerate it with
 `python examples/make_ferry_animation.py` (needs Numba, about 10 minutes).
 
 The steady flow on its own is in
-[`docs/img/coastal_bay.gif`](docs/img/coastal_bay.gif) (dye and FTLE) and
+[`docs/img/coastal_bay.gif`](docs/img/coastal_bay.gif) (dye stripes and FTLE) and
 [`docs/img/coastal_bay.png`](docs/img/coastal_bay.png) (streamlines and the
 finished LCS).
 
