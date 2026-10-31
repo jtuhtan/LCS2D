@@ -28,9 +28,14 @@ The flow is now time-dependent, so the library's steady engine does not
 apply: this script carries its own Numba RK4 kernel with a time-varying
 step (fine while the ship is in the domain), and computes FTLE over
 sliding windows: forward over [t0, t0 + T], backward over [t0 - T, t0].
-Forward FTLE looks ahead, so the ferry's track shows in magenta a little
-before the ferry gets there; the backward (attracting) ridges only
-appear behind it. Requires Numba (``pip install -e .[fast]``); runs in
+
+Forward FTLE needs the flow of the next T hours. Taken literally, that
+would include the ferry's future course, and its track would light up
+before the ferry got there: right as a hindcast, misleading as a picture
+of the sea at t0. So the forward run is causal: it uses only what is
+known at t0, the residual flow and the wake already laid down (left to
+widen and decay), and not the ferry's future course. The repelling track
+grows behind the ship, like the attracting one. Requires Numba (``pip install -e .[fast]``); runs in
 about ten minutes.
 
 Run:  python examples/make_ferry_animation.py [output.gif]
@@ -127,13 +132,19 @@ def _bilinear(g, x0, y0, inv_dx, inv_dy, px, py):
 
 
 @njit(fastmath=True, cache=True)
-def _ship_velocity(x, y, t):
-    """Velocity of the ferry's flow, from its streamfunction psi
-    (u = -dpsi/dy, v = dpsi/dx) differentiated analytically."""
+def _ship_velocity(x, y, t, t_known):
+    """Velocity of the ferry's flow at time t as known at clock time
+    t_known, from its streamfunction psi (u = -dpsi/dy, v = dpsi/dx)
+    differentiated analytically.  After t_known the ferry's course is
+    unknown: the hull is left out, and only the wake it had laid down by
+    t_known (east of where it was then) carries on evolving."""
     xs = SHIP_X0 - SHIP_SPEED * t
-    if xs > SHIP_FROM:
+    # the wake's leading edge: the ship, or where it was at t_known
+    x_front = SHIP_X0 - SHIP_SPEED * min(t, t_known)
+    if x_front > SHIP_FROM:
         return 0.0, 0.0
     dx = x - xs
+    dfront = x - x_front
     dy = y - ROUTE_Y
     u = 0.0
     v = 0.0
@@ -141,7 +152,7 @@ def _ship_velocity(x, y, t):
     # moving with velocity (-U, 0); cut off beyond 3 km, where it is
     # under 6 % of the residual current
     r2 = dx * dx + dy * dy
-    if xs > SHIP_TO and r2 < 9.0:
+    if t <= t_known and xs > SHIP_TO and r2 < 9.0:
         k = SHIP_SPEED * HULL_RADIUS * HULL_RADIUS
         q = r2 + 0.25 * HULL_RADIUS * HULL_RADIUS
         u -= k * (q - 2.0 * dy * dy) / (q * q)
@@ -149,7 +160,7 @@ def _ship_velocity(x, y, t):
     # momentumless wake behind the ship, from where it started:
     # psi = -A w eta exp(-eta^2), eta = dy / w, so
     # u = A (1 - 2 eta^2) exp(-eta^2) runs aft on the track
-    if dx > 0.0 and x < SHIP_FROM:
+    if dfront > 0.0 and x < SHIP_FROM:
         age = dx / SHIP_SPEED
         if age < 6.0 * WAKE_DECAY:
             grow = np.sqrt(1.0 + age / WAKE_GROWTH)
@@ -157,7 +168,7 @@ def _ship_velocity(x, y, t):
             eta = dy / w
             if abs(eta) < 4.0:
                 g = np.exp(-eta * eta)
-                rise = np.exp(-dx / HULL_RADIUS)
+                rise = np.exp(-dfront / HULL_RADIUS)
                 fade = WAKE_SPEED * SHIP_SPEED * np.exp(-age / WAKE_DECAY)
                 amp = fade * (1.0 - rise) / grow
                 # d/dx of w and of amp
@@ -174,34 +185,35 @@ def _ship_velocity(x, y, t):
 
 
 @njit(fastmath=True, cache=True)
-def _velocity(u, v, wet, x0, y0, inv_dx, inv_dy, px, py, t):
+def _velocity(u, v, wet, x0, y0, inv_dx, inv_dy, px, py, t, t_known):
     ub = _bilinear(u, x0, y0, inv_dx, inv_dy, px, py)
     vb = _bilinear(v, x0, y0, inv_dx, inv_dy, px, py)
     s = _bilinear(wet, x0, y0, inv_dx, inv_dy, px, py)
     if s > 0.0:
-        us, vs = _ship_velocity(px, py, t)
+        us, vs = _ship_velocity(px, py, t, t_known)
         ub += s * us
         vb += s * vs
     return ub, vb
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def _advance(u, v, wet, x0, y0, inv_dx, inv_dy, px, py, times):
+def _advance(u, v, wet, x0, y0, inv_dx, inv_dy, px, py, times, t_known):
     for p in prange(px.size):
         x = px[p]
         y = py[p]
         for k in range(times.size - 1):
             t = times[k]
             h = times[k + 1] - t
-            k1u, k1v = _velocity(u, v, wet, x0, y0, inv_dx, inv_dy, x, y, t)
+            k1u, k1v = _velocity(u, v, wet, x0, y0, inv_dx, inv_dy,
+                                 x, y, t, t_known)
             k2u, k2v = _velocity(u, v, wet, x0, y0, inv_dx, inv_dy,
                                  x + 0.5 * h * k1u, y + 0.5 * h * k1v,
-                                 t + 0.5 * h)
+                                 t + 0.5 * h, t_known)
             k3u, k3v = _velocity(u, v, wet, x0, y0, inv_dx, inv_dy,
                                  x + 0.5 * h * k2u, y + 0.5 * h * k2v,
-                                 t + 0.5 * h)
+                                 t + 0.5 * h, t_known)
             k4u, k4v = _velocity(u, v, wet, x0, y0, inv_dx, inv_dy,
-                                 x + h * k3u, y + h * k3v, t + h)
+                                 x + h * k3u, y + h * k3v, t + h, t_known)
             x += h * (k1u + 2.0 * k2u + 2.0 * k3u + k4u) / 6.0
             y += h * (k1v + 2.0 * k2v + 2.0 * k3v + k4v) / 6.0
         px[p] = x
@@ -215,7 +227,7 @@ def _grid_velocity(u, v, wet, x0, y0, inv_dx, inv_dy, gx, gy, t):
     for j in prange(gy.size):
         for i in range(gx.size):
             gu[j, i], gv[j, i] = _velocity(u, v, wet, x0, y0, inv_dx,
-                                           inv_dy, gx[i], gy[j], t)
+                                           inv_dy, gx[i], gy[j], t, t)
     return gu, gv
 
 
@@ -230,10 +242,13 @@ class Flow:
         self.args = (field.u, field.v, wet, field.x[0], field.y[0],
                      1.0 / field.dx, 1.0 / field.dy)
 
-    def advect(self, px, py, t_from, t_to):
+    def advect(self, px, py, t_from, t_to, t_known=np.inf):
+        """Advect from t_from to t_to with the flow as known at clock
+        time t_known (default: all of it, the ferry's course included)."""
         px = np.array(px, dtype=np.float64)
         py = np.array(py, dtype=np.float64)
-        _advance(*self.args, px, py, step_times(t_from, t_to))
+        _advance(*self.args, px, py, step_times(t_from, t_to),
+                 float(t_known))
         return px, py
 
     def velocity_grid(self, gx, gy, t):
@@ -242,14 +257,15 @@ class Flow:
 
 
 def ftle(flow, sx, sy, t0, t1):
-    """FTLE of the seed grid over the flow from t0 to t1."""
+    """FTLE of the seed grid over the flow from t0 to t1, as known at
+    t0 (backward runs only use the past, so nothing changes for them)."""
     delta = RES / 100.0
     mx, my = np.meshgrid(sx, sy)
     cx, cy = mx.ravel(), my.ravel()
     n = cx.size
     px = np.concatenate([cx, cx, cx - delta, cx + delta])
     py = np.concatenate([cy + delta, cy - delta, cy, cy])
-    ex, ey = flow.advect(px, py, t0, t1)
+    ex, ey = flow.advect(px, py, t0, t1, t_known=t0)
     inv2d = 1.0 / (2.0 * delta)
     j11 = (ex[3 * n:] - ex[2 * n:3 * n]) * inv2d
     j12 = (ex[:n] - ex[n:2 * n]) * inv2d

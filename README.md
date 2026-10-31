@@ -112,11 +112,14 @@ size; from its arrival the animation plays at half speed). Its flow is a moving 
 self-propelled, momentumless wake: a propeller jet running aft, flanked by
 water dragged forward, widening and decaying behind the ship. With the flow
 now unsteady, each frame takes the FTLE over sliding 12 h windows, forward
-over [t, t + 12 h] and backward over [t - 12 h, t]. The forward
-(repelling) FTLE looks ahead, so the track lights up in magenta before the
-ferry arrives; the attracting ridges of the wake appear only behind it, and
-over the following hours the residual flow bends them and draws them into
-the bay gyre's separatrix. The streamlines bend around the hull and along
+over [t, t + 12 h] and backward over [t - 12 h, t]. Forward FTLE needs
+the flow ahead of t, and taken literally that includes the ferry's future
+course, so its track would light up before the ferry got there. The forward
+run is therefore causal: it uses only what is known at t, the residual flow
+and the wake already laid down (left to widen and decay), and not where the
+ferry will go. Both the repelling and the attracting ridges of the wake
+grow behind the ship, and over the following hours the residual flow bends
+them and draws them into the bay gyre's separatrix. The streamlines bend around the hull and along
 the wake while it lasts, then relax back to the baseline. Regenerate it with
 `python examples/make_ferry_animation.py` (needs Numba, about 10 minutes).
 
