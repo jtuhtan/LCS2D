@@ -3,14 +3,14 @@
 **Fast Lagrangian coherent structures (FTLE / FSLE) from steady 2D velocity
 fields — in Python.**
 
-![Repelling (magenta) and attracting (light blue) LCS forming around a cape and a bay](docs/img/coastal_lcs.gif)
+![Streamlines, particles and FTLE around a cape and a bay: the baseline forms, then a ferry crosses from east to west and its wake reshapes the LCS](docs/img/coastal_ferry.gif)
 
-*Transport barriers of a coastal residual circulation drawing themselves as
-the integration time grows: an alongshore current passes a cape and a bay,
-with a pair of headland eddies and a bay gyre. Forward FTLE (repelling LCS)
-in magenta, backward FTLE (attracting LCS) in light blue, 48 frames of both
-in under a minute on a laptop CPU. Regenerate it with
-`python examples/make_coastal_animation.py`; see
+*Transport barriers of a coastal residual circulation around a cape and a
+bay: first the baseline forms, with forward FTLE (repelling LCS) in magenta
+and backward FTLE (attracting LCS) in light blue; then a ferry crosses from
+east to west and its wake lays down new ridges that the flow bends into the
+bay gyre. Top: streamlines with particles drifting along them. Regenerate it
+with `python examples/make_ferry_animation.py`; see
 [the coastal example](#showcase-a-coastal-cape-and-bay) below.*
 
 LCS2D takes a two-dimensional steady velocity field — from a hydraulic or CFD
@@ -84,8 +84,6 @@ choose `--t`, `--res`, and friends.
 
 ## Showcase: a coastal cape and bay
 
-![Streamlines, particles and FTLE around a cape and a bay: the baseline forms, then a ferry crosses from east to west and its wake reshapes the LCS](docs/img/coastal_ferry.gif)
-
 `lcs2d.coastal_bay()` (or `lcs2d coast` on the command line) builds an
 idealized coastal residual circulation in kilometres and km/h: a weak
 eastward current (0.1 m/s) along a shore with a cape and a bay, plus the
@@ -95,8 +93,8 @@ over the bay. The eddies are vorticity patches and the streamfunction is
 solved with the coast held at zero, so the shoreline is an exact streamline
 and land is a no-flow mask, as in a hydraulic model.
 
-The top panel shows the streamlines of the instantaneous flow, with
-particles drifting along them; the bottom panel shows the FTLE, which traces
+In the animation at the top, the upper panel shows the streamlines of the instantaneous flow, with
+particles drifting along them, and the lower panel the FTLE, which traces
 what the streamlines only hint at. The magenta (repelling) and light-blue
 (attracting) ridges meet at saddle points offshore and fence each eddy off
 from the coastal current: particles caught in the bay gyre or in the cape's
@@ -124,6 +122,7 @@ the wake while it lasts, then relax back to the baseline. Regenerate it with
 `python examples/make_ferry_animation.py` (needs Numba, about 10 minutes).
 
 The steady flow on its own is in
+[`docs/img/coastal_lcs.gif`](docs/img/coastal_lcs.gif) (the LCS forming),
 [`docs/img/coastal_bay.gif`](docs/img/coastal_bay.gif) (dye stripes and FTLE) and
 [`docs/img/coastal_bay.png`](docs/img/coastal_bay.png) (streamlines and the
 finished LCS).
