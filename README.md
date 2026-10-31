@@ -3,11 +3,15 @@
 **Fast Lagrangian coherent structures (FTLE / FSLE) from steady 2D velocity
 fields — in Python.**
 
-![The repelling LCS of the double gyre forming as the FTLE integration time grows](docs/img/ftle_formation.gif)
+![Repelling (magenta) and attracting (light blue) LCS forming around a cape and a bay](docs/img/coastal_lcs.gif)
 
-*The repelling LCS of the double gyre forming as the integration time grows —
-48 complete FTLE fields, computed in about a minute on a laptop CPU.
-Regenerate it yourself with `python examples/make_ftle_animation.py`.*
+*Transport barriers of a coastal residual circulation drawing themselves as
+the integration time grows: an alongshore current passes a cape and a bay,
+with a pair of headland eddies and a bay gyre. Forward FTLE (repelling LCS)
+in magenta, backward FTLE (attracting LCS) in light blue, 48 frames of both
+in under a minute on a laptop CPU. Regenerate it with
+`python examples/make_coastal_animation.py`; see
+[the coastal example](#showcase-a-coastal-cape-and-bay) below.*
 
 LCS2D takes a two-dimensional steady velocity field — from a hydraulic or CFD
 model, PIV measurements, or an analytic test case — and computes the standard
@@ -48,7 +52,7 @@ lcs2d selftest
 
 ```bash
 # 1. make the classic double-gyre test field (a .npz file)
-lcs2d gyre -o gyre.npz
+lcs2d gyre -o gyre.npz        # or: lcs2d coast -o coast.npz (km, km/h)
 
 # 2. compute a forward FTLE field (repelling LCS) ...
 lcs2d ftle gyre.npz --t 10 -o out/ftle_fwd
@@ -78,12 +82,64 @@ lcs2d ftle  myflow.csv --t 30 -o out/myflow_ftle
 See [Using your own data](docs/your_own_data.md) for formats and for how to
 choose `--t`, `--res`, and friends.
 
+## Showcase: a coastal cape and bay
+
+![Streamlines, particles and FTLE around a cape and a bay: the baseline forms, then a ferry crosses from east to west and its wake reshapes the LCS](docs/img/coastal_ferry.gif)
+
+`lcs2d.coastal_bay()` (or `lcs2d coast` on the command line) builds an
+idealized coastal residual circulation in kilometres and km/h: a weak
+eastward current (0.1 m/s) along a shore with a cape and a bay, plus the
+counter-rotating eddy pair that tides leave on either side of a headland
+(Zimmerman, 1981; Pingree and Maddock, 1977, off Portland Bill) and a gyre
+over the bay. The eddies are vorticity patches and the streamfunction is
+solved with the coast held at zero, so the shoreline is an exact streamline
+and land is a no-flow mask, as in a hydraulic model.
+
+The top panel shows the streamlines of the instantaneous flow, with
+particles drifting along them; the bottom panel shows the FTLE, which traces
+what the streamlines only hint at. The magenta (repelling) and light-blue
+(attracting) ridges meet at saddle points offshore and fence each eddy off
+from the coastal current: particles caught in the bay gyre or in the cape's
+lee eddy keep circling there, while those outside are carried past. The rings
+inside each eddy are its shear. Particles that graze the shore slow down in
+the land mask, which leaves the speckle along the coast; read near-shore
+ridges with that in mind.
+
+**A ferry passes.** The animation first lets the baseline LCS form over a
+12 h integration time. Then a 200 m ferry at 15 knots crosses from east to
+west, 4.6 km offshore over the bay gyre's saddle (the icon is drawn 2.5x
+size; from its arrival the animation plays at half speed). Its flow is a moving dipole (the hull pushing water aside) plus a
+self-propelled, momentumless wake: a propeller jet running aft, flanked by
+water dragged forward, widening and decaying behind the ship. With the flow
+now unsteady, each frame takes the FTLE over sliding 12 h windows, forward
+over [t, t + 12 h] and backward over [t - 12 h, t]. Forward FTLE needs
+the flow ahead of t, and taken literally that includes the ferry's future
+course, so its track would light up before the ferry got there. The forward
+run is therefore causal: it uses only what is known at t, the residual flow
+and the wake already laid down (left to widen and decay), and not where the
+ferry will go. Both the repelling and the attracting ridges of the wake
+grow behind the ship, and over the following hours the residual flow bends
+them and draws them into the bay gyre's separatrix. The streamlines bend around the hull and along
+the wake while it lasts, then relax back to the baseline. Regenerate it with
+`python examples/make_ferry_animation.py` (needs Numba, about 10 minutes).
+
+The steady flow on its own is in
+[`docs/img/coastal_bay.gif`](docs/img/coastal_bay.gif) (dye stripes and FTLE) and
+[`docs/img/coastal_bay.png`](docs/img/coastal_bay.png) (streamlines and the
+finished LCS).
+
+The double gyre stays the reference test case: `lcs2d gyre`,
+`examples/run_double_gyre.sh` and `examples/make_ftle_animation.py` (its
+[FTLE formation GIF](docs/img/ftle_formation.gif)) are unchanged, and the
+selftest and benchmarks still use it.
+
 ## Library use
 
 ```python
 import lcs2d
 
-field  = lcs2d.double_gyre()                 # or lcs2d.load_field("my.csv")
+field  = lcs2d.double_gyre()                 # or lcs2d.coastal_bay(),
+                                             # or lcs2d.load_field("my.csv")
 result = lcs2d.ftle_field(field, t=10.0)     # LCSResult: .x, .y, .values
 ```
 
